@@ -3,13 +3,27 @@ import pytest
 
 class TestWeatherForecast:
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
+
     def get_forecast(self, latitude, longitude, hourly="temperature_2m"):
         params = {
             "latitude": latitude,
             "longitude": longitude,
-            "hourly": hourly
+            "hourly": hourly,
         }
-        return requests.get(self.BASE_URL, params=params, timeout=10)
+
+        try:
+            response = requests.get(self.BASE_URL, params=params, timeout=10)
+            return response
+
+        except requests.exceptions.Timeout:
+            pytest.fail("Request timed out")
+
+        except requests.exceptions.ConnectionError:
+            pytest.fail("Connection error")
+
+        except requests.exceptions.RequestException as e:
+            pytest.fail(f"Request failed: {e}")
+
     @pytest.mark.parametrize(
         "latitude, longitude, city_name",
         [
@@ -18,10 +32,10 @@ class TestWeatherForecast:
             (35.6762, 139.6503, "Tokyo"),
             (55.7558, 37.6173, "Moscow"),
         ],
-        )
+    )
     def test_get_weather_forecast_success(self, latitude, longitude, city_name):
         response = self.get_forecast(latitude, longitude)
-        assert response.status_code == 200, "Failed for {city_name}"
+        assert response.status_code == 200, f"Failed for {city_name}"
 
         data = response.json()
 
@@ -38,4 +52,4 @@ class TestWeatherForecast:
     @pytest.mark.parametrize("invalid_lat", [91, -100, 999])
     def test_invalid_latitude_is_handled(self, invalid_lat):
         response = self.get_forecast(invalid_lat, 0)
-        assert response.status_code == 400, "Failed for {invalid_lat}"
+        assert response.status_code == 400, f"Failed for invalid_lat={invalid_lat}"
